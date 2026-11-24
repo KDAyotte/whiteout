@@ -501,11 +501,17 @@ export function createScene(canvas, { onPick, onDblPick }) {
   let fly = null;
   function flyTo(pos, tgt, dur = 0.8) { fly = { t: 0, dur, p0: camera.position.clone(), t0: controls.target.clone(), p1: new THREE.Vector3(...pos), t1: new THREE.Vector3(...tgt) }; }
   function focusLoc(id) { const l = LOC[id]; flyTo([l.x, 6.5, l.z + 5.2], [l.x, 0, l.z + 0.2]); }
+  // Narrow (portrait) screens see less of the table from side to side, so whole-table views back the camera off.
+  function fitPos(v) {
+    const f = Math.min(2.3, Math.max(1, 1.45 / camera.aspect));
+    return v.pos.map((p, i) => v.tgt[i] + (p - v.tgt[i]) * f);
+  }
   function setView(name) {
     if (name === 'survivor') { const p = survivorFig?.userData.target || survivorFig?.position; if (p) flyTo([p.x, 6.5, p.z + 5.2], [p.x, 0, p.z]); return; }
-    flyTo(VIEWS[name].pos, VIEWS[name].tgt);
+    flyTo(name === 'player' ? VIEWS[name].pos : fitPos(VIEWS[name]), VIEWS[name].tgt);
   }
   camera.position.set(...VIEWS.overview.pos); controls.target.set(...VIEWS.overview.tgt);
+  controls.maxDistance = 80;
   controls.addEventListener('start', () => { fly = null; });
 
   const keys = new Set();
@@ -549,11 +555,15 @@ export function createScene(canvas, { onPick, onDblPick }) {
   const el = renderer.domElement;
   el.addEventListener('pointermove', e => { if (!e.buttons) setHover(pick(e)); });
   el.addEventListener('pointerleave', () => setHover(null));
-  el.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; });
+  // A tap/click picks; a drag, or any gesture that used two fingers (pinch), does not.
+  const down = new Set(); let multi = false;
+  el.addEventListener('pointerdown', e => { down.add(e.pointerId); if (down.size > 1) multi = true; else { multi = false; downAt = [e.clientX, e.clientY]; } });
+  el.addEventListener('pointercancel', e => { down.delete(e.pointerId); downAt = null; });
   el.addEventListener('pointerup', e => {
-    if (!downAt || e.button !== 0) return;
+    down.delete(e.pointerId);
+    if (!downAt || e.button !== 0 || multi) { if (!down.size) downAt = null; return; }
     const moved = Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]); downAt = null;
-    if (moved > 5) return;
+    if (moved > (e.pointerType === 'touch' ? 12 : 5)) return;
     const o = pick(e); if (o) onPick(o.userData);
   });
   el.addEventListener('dblclick', e => { const o = pick(e); if (o) onDblPick(o.userData); });
@@ -566,18 +576,24 @@ export function createScene(canvas, { onPick, onDblPick }) {
   gtao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.5, thickness: 1, scale: 1.2, samples: 16 });
   composer.addPass(gtao);
   composer.addPass(new OutputPass());
-  let quality = localStorage.getItem('whiteout-quality') || 'medium';
+  // Touch devices (phones, tablets) start on Low; the Menu can still raise it.
+  const touch = matchMedia('(pointer: coarse)').matches;
+  let quality = localStorage.getItem('whiteout-quality') || (touch ? 'low' : 'medium');
   function applyQuality() {
-    const pr = { low: 1, medium: Math.min(devicePixelRatio, 1.5), high: Math.min(devicePixelRatio, 2) }[quality];
+    const pr = { low: touch ? Math.min(devicePixelRatio, 1.5) : 1, medium: Math.min(devicePixelRatio, 1.5), high: Math.min(devicePixelRatio, 2) }[quality];
     renderer.setPixelRatio(pr); composer.setPixelRatio(pr);
     lampLight.castShadow = quality !== 'low';
     const size = quality === 'high' ? 4096 : 2048;
     if (lampLight.shadow.mapSize.x !== size) { lampLight.shadow.mapSize.set(size, size); lampLight.shadow.map?.dispose(); lampLight.shadow.map = null; }
     resize();
   }
+  // inset: screen area covered by a panel (phones). The picture shifts by half of it so the table stays centred in what's left.
+  let inset = [0, 0];
   function resize() {
     const w = el.clientWidth || innerWidth, h = el.clientHeight || innerHeight;
-    renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
+    renderer.setSize(w, h, false); composer.setSize(w, h); camera.aspect = w / h;
+    if (inset[0] || inset[1]) camera.setViewOffset(w, h, inset[0] / 2, inset[1] / 2, w, h); else camera.clearViewOffset();
+    camera.updateProjectionMatrix();
   }
   addEventListener('resize', resize); applyQuality();
   const clock = new THREE.Clock();
@@ -638,6 +654,7 @@ export function createScene(canvas, { onPick, onDblPick }) {
     labelsOn: () => labelsOn,
     setLabels(on) { labelsOn = on; for (const s of Object.values(badges)) s.visible = on; },
     resize,
+    setInset(right, bottom) { inset = [right, bottom]; resize(); },
     getQuality: () => quality,
     setQuality(q) { quality = q; localStorage.setItem('whiteout-quality', q); applyQuality(); },
   };

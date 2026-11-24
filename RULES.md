@@ -25,6 +25,17 @@ game saves itself after every action, so you can close the tab and pick it up ag
   *Show on board* flies the camera there.
 - **H** hides the panels so you can see the whole table.
 
+### On a phone
+
+On a small screen, the game switches to a phone layout. It works upright, but sideways gives a bigger table.
+
+- **Touch**: drag with one finger to rotate, pinch to zoom, and drag with two fingers to pan. Tap a tile or card to read it, with *Move here*, *Shoot*, *Use* and *Fly camera here* buttons.
+- **Top bar**: 🗺 Overview, ⬇ Top-down, 🃏 My area, 📍 Find me, 🏷 Labels, ☰ Menu.
+- **Strip under it**: Health ❤, Warmth 🔥, Ammo 🔫, Noise 🔊, Actions ⚡, and the Round and Storm.
+- **Tab bar**: 🎲 Actions, ❤ Status (meters, goals and the log), 🎒 Pack (your backpack) and 🎯 Missions.
+  Tap a tab to open its panel and tap it again to close it. The Actions tab glows red when zombies are in your room.
+- Phones start on **Low** graphics. You can raise it in ☰ Menu if your phone handles it.
+
 ## How to win
 
 Escape by one of two routes:

@@ -3,7 +3,10 @@
 <head>
 <meta charset="utf-8">
 <title>Whiteout — Kessel Ridge Station</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0c0f13">
 <style>
   :root { --ui:#151a21ee; --ink:#e9eef4; --mute:#9aa6b4; --acc:#ffb347; --good:#7fd18b; --bad:#ff7a6b; --cold:#8fc9ff; --goal:#ffd75e; }
   * { box-sizing:border-box; }
@@ -112,6 +115,86 @@
   .mtable { width:100%; border-collapse:collapse; font-size:13px; }
   .mtable th, .mtable td { text-align:left; padding:5px 8px; border-bottom:1px solid #2b3440; }
   .mtable th { color:var(--mute); font-weight:600; }
+
+  /* top-bar buttons carry an icon + a label; phones show only the icon */
+  #top .ico { display:none; }
+  #hud, #tabs { display:none; }
+
+  /* ---------------------------------------------------------------- phones (body.phone set by main.js) */
+  body.phone { -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; }
+  body.phone canvas#gl { height:100dvh; }
+  body.phone button { padding:8px 10px; font-size:14px; }
+  body.phone #top { top:calc(6px + env(safe-area-inset-top)); left:6px; right:6px; padding:5px 6px; gap:5px; justify-content:space-between; }
+  body.phone #top h1, body.phone #top .t, body.phone #panelsBtn, body.phone #missionsBtn { display:none; }
+  body.phone #top .ico { display:inline; }
+  body.phone #top button { flex:1; padding:7px 0; font-size:17px; }
+  body.phone #help, body.phone #preview { display:none !important; }
+
+  /* one-line status strip under the top bar */
+  body.phone #hud { display:flex; position:absolute; top:calc(56px + env(safe-area-inset-top)); left:6px; right:6px; padding:5px 10px; gap:10px;
+                    justify-content:space-between; font-size:13.5px; white-space:nowrap; overflow:hidden; border-radius:8px; }
+  #hud b { font-weight:700; }
+  #hud .lo { color:var(--bad); }
+
+  /* tab bar at the bottom */
+  body.phone #tabs { display:flex; position:absolute; left:6px; right:6px; bottom:calc(6px + env(safe-area-inset-bottom)); padding:5px; gap:5px; z-index:5; }
+  #tabs button { flex:1; display:flex; flex-direction:column; align-items:center; gap:1px; padding:6px 0; font-size:12px; }
+  #tabs button .i { font-size:19px; line-height:1.1; }
+  #tabs button.on { background:#3a2c18; border-color:var(--acc); }
+  #tabs button.alert { border-color:var(--bad); box-shadow:0 0 10px #ff7a6b66; }
+
+  /* status, actions and backpack become sheets: only the chosen one shows */
+  body.phone #status, body.phone #actions, body.phone #hand { display:none; left:6px; right:6px; top:auto; width:auto; z-index:4;
+        bottom:calc(70px + env(safe-area-inset-bottom)); max-height:52dvh; overflow-y:auto; }
+  body.phone[data-sheet=status] #status, body.phone[data-sheet=actions] #actions, body.phone[data-sheet=hand] #hand { display:flex; }
+  body.phone #status #log { min-height:120px; max-height:none; }
+  body.phone .opt { padding:9px 10px; }
+  body.phone .opt .l { font-size:15px; } body.phone .opt .s { font-size:12.5px; }
+  body.phone #hand { flex-direction:column; align-items:stretch; padding:8px; }
+  body.phone #hand .lbl { writing-mode:horizontal-tb; transform:none; margin-bottom:6px; }
+  body.phone #handCards { flex-wrap:wrap; justify-content:center; }
+  body.phone #hand img { width:calc(33% - 6px); max-width:150px; }
+  body.phone #hand img:hover { transform:none; }
+
+  body.phone #toast { bottom:auto; top:calc(92px + env(safe-area-inset-top)); width:max-content; max-width:92vw; z-index:6; }
+
+  /* reader: picture above the text, scrolls */
+  body.phone #reader { flex-direction:column; justify-content:flex-start; gap:12px; overflow-y:auto; padding:calc(14px + env(safe-area-inset-top)) 14px 24px; }
+  body.phone #reader img { max-width:92vw !important; max-height:46dvh; flex:none; }
+  body.phone .txt { max-width:92vw; font-size:15px; }
+  body.phone .txt h2 { font-size:22px; }
+  body.phone .txt .btns button { flex:1 1 45%; padding:11px 8px; }
+
+  /* dialogs */
+  body.phone .dialog { padding:14px 12px; max-width:96vw; max-height:94dvh; }
+  body.phone .cards { gap:8px; }
+  body.phone .cards img { max-width:43vw; height:auto; }
+  body.phone .cards img:only-child { max-width:68vw; }
+  body.phone .diff { flex-wrap:wrap; }
+  body.phone .mstep { flex-wrap:wrap; gap:8px; }
+  body.phone .mstep img { width:96px; }
+  body.phone .mstep .mtxt { min-width:180px; }
+  body.phone .mstep > button { width:100%; }
+  body.phone .mroute { overflow-x:auto; }
+  body.phone .mtable { font-size:12px; }
+
+  /* phone held sideways: sheets dock on the right instead of the bottom */
+  body.phone.land #top { right:auto; width:min(60vw, 440px); }
+  body.phone.land #hud { top:auto; bottom:calc(6px + env(safe-area-inset-bottom)); right:auto; width:min(60vw, 440px); }
+  body.phone.land #tabs { left:auto; right:calc(6px + env(safe-area-inset-right)); top:calc(6px + env(safe-area-inset-top)); bottom:auto; width:min(38vw, 330px); }
+  body.phone.land #status, body.phone.land #actions, body.phone.land #hand { left:auto; right:calc(6px + env(safe-area-inset-right)); width:min(38vw, 330px);
+        top:calc(62px + env(safe-area-inset-top)); bottom:calc(6px + env(safe-area-inset-bottom)); max-height:none; }
+  body.phone.land #hand img { width:calc(50% - 6px); }
+  body.phone.land #toast { top:calc(60px + env(safe-area-inset-top)); left:32%; }
+  body.phone.land #reader { flex-direction:row; align-items:flex-start; }
+  body.phone.land #reader img { max-width:46vw !important; max-height:88dvh; }
+  body.phone.land .txt { max-width:46vw; }
+  body.phone.land .cards img { width:auto !important; max-height:50dvh; max-width:22vw; }
+  body.phone.land .cards img:only-child { max-width:40vw; }
+  body.phone.land .dialog { padding:10px 14px; }
+  body.phone.land .dialog h2 { font-size:19px; margin:0; }
+  body.phone.land .dialog .note { margin-bottom:6px; }
+  body.phone.land .cards { margin:4px 0 8px; }
 </style>
 </head>
 <body>
@@ -119,15 +202,22 @@
 
 <div id="top" class="panel">
   <h1>WHITEOUT</h1>
-  <button data-view="overview" title="Key 1">Overview</button>
-  <button data-view="top" title="Key 2">Top-down</button>
-  <button data-view="player" title="Key 3">My area</button>
-  <button data-view="survivor" title="Key 4">Find me</button>
-  <button id="missionsBtn" title="Key M">🎯 Missions</button>
-  <button id="labelsBtn" class="on" title="Key L">🏷 Labels</button>
+  <button data-view="overview" title="Overview (key 1)"><span class="ico">🗺</span><span class="t">Overview</span></button>
+  <button data-view="top" title="Top-down (key 2)"><span class="ico">⬇</span><span class="t">Top-down</span></button>
+  <button data-view="player" title="My area (key 3)"><span class="ico">🃏</span><span class="t">My area</span></button>
+  <button data-view="survivor" title="Find me (key 4)"><span class="ico">📍</span><span class="t">Find me</span></button>
+  <button id="missionsBtn" title="Missions (key M)"><span class="ico">🎯</span><span class="t">🎯 Missions</span></button>
+  <button id="labelsBtn" class="on" title="Labels (key L)"><span class="ico">🏷</span><span class="t">🏷 Labels</span></button>
   <button id="panelsBtn" class="on" title="Key H">▤ Panels</button>
-  <button id="menuBtn">Menu</button>
+  <button id="menuBtn" title="Menu"><span class="ico">☰</span><span class="t">Menu</span></button>
 </div>
+<div id="hud" class="panel"></div>
+<nav id="tabs" class="panel">
+  <button data-sheet="actions"><span class="i">🎲</span><span id="tabActLbl">Actions</span></button>
+  <button data-sheet="status"><span class="i">❤</span>Status</button>
+  <button data-sheet="hand"><span class="i">🎒</span><span id="tabHandLbl">Pack</span></button>
+  <button id="tabMissions"><span class="i">🎯</span>Missions</button>
+</nav>
 
 <div id="status" class="panel">
   <div class="who"><b id="sName">—</b><span id="sRole"></span></div>

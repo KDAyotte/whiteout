@@ -12,6 +12,36 @@ const faceUrl = face => urlOf(cardCanvas(face));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const reader = $('#reader'), modal = $('#modal'), dialog = modal.querySelector('.dialog');
+
+// ------------------------------------------------------------ phone layout
+// Small screens get a status strip, a bottom tab bar and one sheet at a time (Actions, Status or Pack).
+const phoneMQ = matchMedia('(max-width: 760px), (max-height: 520px)');
+const isPhone = () => document.body.classList.contains('phone');
+function applyPhone() {
+  document.body.classList.toggle('phone', phoneMQ.matches);
+  document.body.classList.toggle('land', phoneMQ.matches && innerWidth > innerHeight);
+  updateInset();
+}
+// keep the table centred in the part of the screen the open sheet doesn't cover
+function updateInset() {
+  if (!scene) return;
+  const name = document.body.dataset.sheet, el = name && { status: '#status', actions: '#actions', hand: '#hand' }[name];
+  if (!isPhone() || !el) return scene.setInset(0, 0);
+  const r = $(el).getBoundingClientRect();
+  if (document.body.classList.contains('land')) scene.setInset(innerWidth - r.left, 0);
+  else scene.setInset(0, Math.max(0, innerHeight - r.top - 70));
+}
+phoneMQ.addEventListener('change', applyPhone);
+addEventListener('resize', applyPhone);   // first call happens at boot, once `scene` exists
+function openSheet(name, force) {
+  const cur = document.body.dataset.sheet || '';
+  const next = name === cur && !force ? '' : name;
+  document.body.dataset.sheet = next;
+  document.querySelectorAll('#tabs button[data-sheet]').forEach(b => b.classList.toggle('on', b.dataset.sheet === next));
+  updateInset();
+}
+document.querySelectorAll('#tabs button[data-sheet]').forEach(b => b.onclick = () => openSheet(b.dataset.sheet));
+$('#tabMissions').onclick = () => missionsModal();
 const anyOverlay = () => reader.classList.contains('open') || modal.classList.contains('open');
 
 // ------------------------------------------------------------ scene
@@ -134,7 +164,7 @@ function openReader(ud) {
     if (CARDS[G.hand.find(c => c.uid === ud.uid).id].use) btns.push(`<button class="primary" data-a="use" ${game.canUse(ud.uid) ? '' : 'disabled'}>Use (free)</button>`);
     btns.push(`<button data-a="discard" ${game.busy || G.phase !== 'player' ? 'disabled' : ''}>Discard</button>`);
   }
-  btns.push('<button data-a="close">Close (Esc)</button>');
+  btns.push(`<button data-a="close">${isPhone() ? 'Close' : 'Close (Esc)'}</button>`);
   reader.querySelector('img').src = i.img; reader.querySelector('img').style.maxWidth = i.wide ? '60vw' : '52vw';
   const txt = reader.querySelector('.txt');
   txt.innerHTML = i.html + `<div class="btns">${btns.join('')}</div>`;
@@ -174,14 +204,19 @@ function render() {
   const has = id => G.hand.some(c => c.id === id);
   const hasParts = has('parts') || (G.survivor === 'jonas' && has('scrap'));
   const ck = (ok, txt) => `<div class="${ok ? 'done' : 'todo'}">${ok ? '✔' : '○'} ${txt}</div>`;
-  $('#goals').innerHTML = `<span class="hint">details (M) ›</span><b>Helicopter route</b>
+  $('#goals').innerHTML = `<span class="hint">details${isPhone() ? '' : ' (M)'} ›</span><b>Helicopter route</b>
     ${ck(G.power, G.power ? 'Power restored' : `Restore Power <small>(Generator Shed: Fuel ${has('fuel') ? '✓' : '✗'} + Parts ${hasParts ? '✓' : '✗'})</small>`)}
     ${ck(G.antenna, G.antenna ? 'Antenna repaired' : `Repair Antenna <small>(Radio Tower: Toolkit ${has('toolkit') ? '✓' : '✗'})</small>`)}
     ${ck(!!G.evacRound, `Call Evac <small>(Command Room)</small>`)}
     ${ck(G.evacRound && G.round >= G.evacRound, G.evacRound ? `Board at Helipad <small>(lands round ${G.evacRound})</small>` : 'Board at Helipad')}
     <b>Snowcat route</b> <small>(Garage)</small>
     ${ck(has('keys'), 'Snowcat Keys')}${ck(has('fuel'), 'Fuel Can')}${ck(hasParts, 'Spare Parts')}`;
+  const lo = (v, n) => v <= n ? ' class="lo"' : '';
+  $('#hud').innerHTML = `<span${lo(G.health, 2)}>❤ <b>${G.health}</b></span><span${lo(G.warmth, 1)}>🔥 <b>${G.warmth}</b></span>
+    <span>🔫 <b>${G.ammo}</b></span><span>🔊 <b>${G.noise}</b></span><span>⚡ <b>${G.actions}</b></span>
+    <span${G.storm >= G.stormMax ? ' class="lo"' : ''}>❄ R${G.round} · ${G.storm}/${G.stormMax}</span>`;
   renderActions(); renderHand(); renderLog();
+  updateInset();
 }
 function renderLog() {
   const G = game.G; if (!G) return;
@@ -207,12 +242,15 @@ function renderActions() {
     <button id="endround" class="primary" ${busy || G.over ? 'disabled' : ''}>End round ▶${G.actions ? ` <small>(${G.actions} unused)</small>` : ''}</button>`;
   el.querySelectorAll('button[data-k]').forEach(b => b.onclick = () => { const o = opts.find(o => o.key === b.dataset.k); if (o) game.run(o); });
   $('#endround').onclick = () => game.endRound();
+  $('#tabActLbl').textContent = G.phase === 'threat' ? 'Threat…' : `Actions ${G.actions}`;
+  $('#tabs [data-sheet=actions]').classList.toggle('alert', z > 0);
 }
 function renderHand() {
   const G = game.G;
   $('#handCards').innerHTML = G.hand.length ? G.hand.map(c => `<img src="${faceUrl('s:' + c.id)}" data-uid="${c.uid}" title="${esc(CARDS[c.id].title)}">`).join('')
     : '<div class="empty">Empty</div>';
   $('#hand .lbl').textContent = `BACKPACK ${G.hand.length}/${HAND_LIMIT}`;
+  $('#tabHandLbl').textContent = `Pack ${G.hand.length}/${HAND_LIMIT}`;
   $('#handCards').querySelectorAll('img').forEach(img => img.onclick = () => {
     const c = G.hand.find(x => x.uid === +img.dataset.uid); openReader({ kind: 'card', face: 's:' + c.id, uid: c.uid });
   });
@@ -283,8 +321,9 @@ async function startScreen() {
       root.querySelectorAll('img[data-s]').forEach(img => img.onclick = () => { surv = img.dataset.s; root.querySelectorAll('img[data-s]').forEach(i => i.classList.toggle('sel', i === img)); });
       root.querySelectorAll('button[data-d]').forEach(b => b.onclick = () => { diff = b.dataset.d; root.querySelectorAll('button[data-d]').forEach(x => x.classList.toggle('sel', x === b)); });
     });
-  if (r === 'continue') { game.load(); return; }
   if (r === 'rules') { await quickRules(); return startScreen(); }
+  if (isPhone()) openSheet('actions', true);
+  if (r === 'continue') { game.load(); return; }
   game.newGame(surv, diff);
   scene.setView('overview');
 }
@@ -337,8 +376,10 @@ addEventListener('keydown', e => {
   if (v) scene.setView(v);
 });
 
+applyPhone();
 preloadArt().then(() => {
   makeScene();
+  scene.resize();
   startScreen();
   window.__whiteout = { game, scene };
 });

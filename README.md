@@ -9,6 +9,10 @@ and you have to escape by helicopter or snowcat before the storm buries you.
 Open **`index.html`** in a browser (double-click it). Everything is bundled into that one file,
 so it works offline. Games save automatically in the browser.
 
+**On a phone:** the layout switches to touch controls automatically (see RULES.md). Phones won't run the file
+straight from storage, so serve it. At home, run `node serve.mjs` on the PC and open `http://<PC's IP>:5317` on the
+phone, on the same Wi-Fi.
+
 Full rules and controls: **[RULES.md](RULES.md)**.
 
 ## Build from source
