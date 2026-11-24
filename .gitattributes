@@ -1,0 +1,9 @@
+* text=auto
+# built bundle and generated code: don't diff, mark as generated on GitHub
+index.html -diff linguist-generated
+src/art.gen.js linguist-generated
+# binary assets
+*.glb binary
+*.hdr binary
+*.jpg binary
+*.png binary

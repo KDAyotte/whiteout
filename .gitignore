@@ -1,0 +1,12 @@
+# dependencies (reinstall with: npm install)
+node_modules/
+
+# Meshy task sidecars hold signed download links — keep them local
+*_meta.json
+meta.json
+
+# scratch / OS files
+*.tmp.glb
+Thumbs.db
+desktop.ini
+.DS_Store

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Whiteout — Kessel Ridge Station</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --ui:#151a21ee; --ink:#e9eef4; --mute:#9aa6b4; --acc:#ffb347; --good:#7fd18b; --bad:#ff7a6b; --cold:#8fc9ff; --goal:#ffd75e; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; overflow:hidden; background:#0c0f13; font-family:"Segoe UI",system-ui,sans-serif; color:var(--ink); }
+  canvas#gl { display:block; width:100vw; height:100vh; }
+  .panel { position:absolute; background:var(--ui); border:1px solid #2b3440; border-radius:10px; box-shadow:0 6px 24px #0008; }
+  button { background:#26303c; color:var(--ink); border:1px solid #3a4655; border-radius:7px; padding:6px 11px; font:inherit; font-size:13px; cursor:pointer; }
+  button:hover:not(:disabled) { background:#33404f; border-color:var(--acc); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  button.primary { background:#b5651d; border-color:#e08a3a; font-weight:600; }
+  button.primary:hover:not(:disabled) { background:#cf7624; }
+
+  #top { top:12px; left:12px; padding:8px 12px; display:flex; gap:8px; align-items:center; }
+  #top h1 { font-size:16px; margin:0 8px 0 0; letter-spacing:.06em; }
+
+  /* status (left) */
+  #status { top:64px; left:12px; width:280px; padding:12px; display:flex; flex-direction:column; gap:10px; max-height:calc(100vh - 140px); }
+  #status .who { display:flex; justify-content:space-between; align-items:baseline; }
+  #status .who b { font-size:16px; }
+  #status .who span { color:var(--mute); font-size:12px; }
+  .meters { display:grid; grid-template-columns:auto 1fr; gap:3px 8px; font-size:12.5px; align-items:center; }
+  .pips { display:flex; gap:3px; }
+  .pip { width:15px; height:11px; border-radius:3px; background:#2a323c; }
+  .storm { font-size:12.5px; color:var(--cold); }
+  .goals { font-size:12.5px; line-height:1.6; border-top:1px solid #2b3440; padding-top:8px; }
+  .goals .done { color:var(--good); } .goals .todo { color:var(--mute); }
+  #log { flex:1; min-height:80px; overflow-y:auto; font-size:12.5px; line-height:1.45; border-top:1px solid #2b3440; padding-top:8px; }
+  #log div { margin-bottom:3px; }
+  #log .good { color:var(--good); } #log .bad { color:var(--bad); } #log .cold { color:var(--cold); } #log .goal { color:var(--goal); font-weight:600; } #log .sys { color:var(--mute); font-style:italic; }
+
+  /* actions (right) */
+  #actions { top:12px; right:12px; width:290px; padding:12px; display:flex; flex-direction:column; gap:8px; max-height:calc(100vh - 150px); overflow-y:auto; }
+  #actions h3 { margin:2px 0 0; font-size:11px; letter-spacing:.14em; color:var(--mute); font-weight:600; }
+  #actions .here { font-size:15px; }
+  #actions .here small { display:block; color:var(--mute); font-size:12px; }
+  #actions .apips { display:flex; gap:5px; align-items:center; font-size:12px; color:var(--mute); }
+  #actions .apip { width:20px; height:20px; border-radius:50%; background:#2a323c; border:2px solid #3a4655; }
+  #actions .apip.on { background:var(--acc); border-color:#ffd59a; }
+  .opt { display:flex; flex-direction:column; align-items:flex-start; text-align:left; width:100%; padding:7px 10px; }
+  .opt .l { font-weight:600; font-size:13.5px; }
+  .opt .s { font-size:11.5px; color:var(--mute); }
+  .opt.move .l::before { content:'➜ '; color:var(--cold); }
+  #endround { padding:10px; font-size:14px; }
+
+  #hand { bottom:12px; right:12px; padding:8px 10px 6px; display:flex; gap:8px; align-items:flex-end; }
+  #hand .lbl { writing-mode:vertical-rl; transform:rotate(180deg); font-size:11px; color:var(--mute); letter-spacing:.15em; }
+  #hand img { width:76px; border-radius:6px; cursor:pointer; transition:transform .15s; }
+  #hand img:hover { transform:translateY(-14px) scale(1.15); }
+  #hand .empty { font-size:12px; color:var(--mute); padding:20px 10px; }
+
+  #preview { right:316px; top:12px; width:240px; padding:8px; display:none; pointer-events:none; }
+  #preview img { width:100%; border-radius:8px; display:block; }
+  #preview .cap { font-size:12px; color:var(--mute); margin-top:6px; text-align:center; }
+
+  #help { bottom:12px; left:12px; padding:7px 11px; font-size:12px; color:var(--mute); line-height:1.5; }
+  #help b { color:var(--ink); font-weight:600; }
+  #help.min .full { display:none; }
+  #help:not(.min) .mini { display:none; }
+
+  #toast { position:absolute; left:50%; bottom:150px; transform:translateX(-50%); padding:10px 18px; font-size:15px; display:none; text-align:center; }
+  #toast .dice { display:flex; gap:6px; justify-content:center; margin:6px 0 2px; }
+  #toast .d { width:30px; height:30px; border-radius:6px; background:#f3efe6; color:#111; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  #toast .d.hit { background:#7fd18b; } #toast .d.one { background:#ff7a6b; }
+
+  /* overlays */
+  .overlay { position:absolute; inset:0; background:#05070acc; display:none; align-items:center; justify-content:center; backdrop-filter:blur(3px); z-index:10; }
+  .overlay.open { display:flex; }
+  #reader { gap:28px; }
+  #reader img { max-height:86vh; max-width:52vw; border-radius:14px; box-shadow:0 10px 50px #000; }
+  .txt { max-width:380px; font-size:16px; line-height:1.5; }
+  .txt h2 { margin:0 0 4px; font-size:26px; }
+  .txt .type { color:var(--acc); font-size:13px; letter-spacing:.12em; text-transform:uppercase; margin-bottom:14px; }
+  .txt .flavor { color:var(--mute); font-style:italic; margin-top:14px; }
+  .txt .btns { margin-top:22px; display:flex; gap:8px; flex-wrap:wrap; }
+
+  .dialog { background:#151a21; border:1px solid #2b3440; border-radius:14px; padding:22px 26px; max-width:min(1100px, 94vw); max-height:92vh; overflow:auto; box-shadow:0 10px 60px #000; text-align:center; }
+  .dialog h2 { margin:0 0 6px; }
+  .dialog .note { color:var(--mute); margin-bottom:14px; }
+  .cards { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin:10px 0 18px; }
+  .cards img { width:200px; border-radius:10px; cursor:pointer; border:3px solid transparent; transition:transform .12s; }
+  .cards.static img { cursor:default; }
+  .cards img:hover { transform:translateY(-4px); }
+  .cards img.sel { border-color:var(--acc); box-shadow:0 0 18px #ffb34788; }
+  .dialog .row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  .diff { display:flex; gap:8px; justify-content:center; margin:6px 0 16px; }
+  .diff button.sel { border-color:var(--acc); background:#3a2c18; }
+  .big { font-size:48px; margin:0; }
+  #labelsBtn.on, #panelsBtn.on { border-color:var(--acc); }
+  #panelsBtn:not(.on) { background:#b5651d; border-color:#e08a3a; }
+  #goals { cursor:pointer; border-radius:6px; }
+  #goals:hover { background:#ffffff08; }
+  #goals .hint { color:var(--acc); font-size:11px; float:right; }
+  .mroute { text-align:left; margin-top:14px; }
+  .mroute h3 { margin:0 0 8px; font-size:15px; }
+  .mstep { display:flex; gap:14px; align-items:center; background:#1d242d; border:1px solid #2b3440; border-left:4px solid #555; border-radius:10px; padding:10px; margin-bottom:8px; }
+  .mstep.done { border-left-color:var(--good); opacity:.75; }
+  .mstep.ready { border-left-color:var(--acc); box-shadow:0 0 14px #ffb34733; }
+  .mstep img { width:150px; border-radius:6px; flex:none; }
+  .mstep .mtxt { flex:1; font-size:13.5px; }
+  .mstep ul { margin:4px 0; padding-left:4px; list-style:none; }
+  .mstep li.ok { color:var(--good); } .mstep li.no { color:var(--bad); }
+  .mhead { display:flex; justify-content:space-between; align-items:center; font-size:15px; }
+  .chip { font-size:11px; letter-spacing:.1em; padding:2px 8px; border-radius:10px; background:#2a323c; color:var(--mute); }
+  .mstep.done .chip { background:#1f4a2a; color:var(--good); } .mstep.ready .chip { background:#4a3415; color:var(--acc); }
+  .msub { color:var(--mute); font-size:12.5px; }
+  .mtable { width:100%; border-collapse:collapse; font-size:13px; }
+  .mtable th, .mtable td { text-align:left; padding:5px 8px; border-bottom:1px solid #2b3440; }
+  .mtable th { color:var(--mute); font-weight:600; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="top" class="panel">
+  <h1>WHITEOUT</h1>
+  <button data-view="overview" title="Key 1">Overview</button>
+  <button data-view="top" title="Key 2">Top-down</button>
+  <button data-view="player" title="Key 3">My area</button>
+  <button data-view="survivor" title="Key 4">Find me</button>
+  <button id="missionsBtn" title="Key M">🎯 Missions</button>
+  <button id="labelsBtn" class="on" title="Key L">🏷 Labels</button>
+  <button id="panelsBtn" class="on" title="Key H">▤ Panels</button>
+  <button id="menuBtn">Menu</button>
+</div>
+
+<div id="status" class="panel">
+  <div class="who"><b id="sName">—</b><span id="sRole"></span></div>
+  <div class="meters" id="meters"></div>
+  <div class="storm" id="stormTxt"></div>
+  <div class="goals" id="goals"></div>
+  <div id="log"></div>
+</div>
+
+<div id="actions" class="panel"></div>
+<div id="hand" class="panel"><span class="lbl">BACKPACK</span><div id="handCards" style="display:flex;gap:8px"></div></div>
+<div id="preview" class="panel"><img alt=""><div class="cap">Click to read</div></div>
+<div id="toast" class="panel"></div>
+<div id="help" class="panel min">
+  <span class="mini"><b>?</b> Controls</span>
+  <span class="full"><b>Left-drag</b> rotate · <b>Right-drag</b>/<b>WASD</b> pan · <b>Wheel</b> zoom · <b>Q/E</b> turn · <b>1–4</b> views · <b>H</b> hide panels<br>
+  <b>Hover</b> preview · <b>Click</b> card/tile to read · <b>Double-click</b> tile to fly there · blue tiles = where you can move</span>
+</div>
+
+<div id="reader" class="overlay"><img alt=""><div class="txt"></div></div>
+<div id="modal" class="overlay"><div class="dialog"></div></div>
+
+<!--SCRIPT-->
+</body>
+</html>
