@@ -6,12 +6,13 @@ and you have to escape by helicopter or snowcat before the storm buries you.
 
 ## Play
 
-Open **`index.html`** in a browser (double-click it). Everything is bundled into that one file,
+**Online (computer, phone or tablet): https://kdayotte.github.io/whiteout/**
+
+Or open **`index.html`** in a browser (double-click it). Everything is bundled into that one file,
 so it works offline. Games save automatically in the browser.
 
-**On a phone:** the layout switches to touch controls automatically (see RULES.md). Phones won't run the file
-straight from storage, so serve it. At home, run `node serve.mjs` on the PC and open `http://<PC's IP>:5317` on the
-phone, on the same Wi-Fi.
+**On a phone:** use the online link. The layout switches to touch controls automatically (see RULES.md).
+The site updates itself a minute or two after each push to `main`.
 
 Full rules and controls: **[RULES.md](RULES.md)**.
 
