@@ -380,6 +380,7 @@ applyPhone();
 preloadArt().then(() => {
   makeScene();
   scene.resize();
+  const boot = $('#boot'); if (boot && !$('#bootMsg').style.whiteSpace) boot.style.display = 'none';
   startScreen();
   window.__whiteout = { game, scene };
 });

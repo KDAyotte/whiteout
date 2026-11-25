@@ -199,6 +199,29 @@
 </head>
 <body>
 <canvas id="gl"></canvas>
+<!-- shown until the game boots; if anything fails, the error is written here so it can be reported -->
+<div id="boot" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;z-index:50;background:#0c0f13;text-align:center;padding:20px">
+  <div style="font-size:22px;letter-spacing:.1em">WHITEOUT</div>
+  <div id="bootMsg" style="color:#9aa6b4">Loading the station…</div>
+</div>
+<script>
+  (function () {
+    function report(msg) {
+      var b = document.getElementById('boot'), m = document.getElementById('bootMsg');
+      if (!b || !m) return;
+      b.style.display = 'flex';
+      m.style.color = '#ff7a6b'; m.style.whiteSpace = 'pre-wrap'; m.style.fontSize = '14px'; m.style.maxWidth = '90vw';
+      m.textContent = 'Something went wrong:\n' + msg + '\n\n' + navigator.userAgent;
+    }
+    window.__bootReport = report;
+    window.addEventListener('error', function (e) { report((e.message || 'error') + (e.filename ? '\n' + e.filename.split('/').pop() + ':' + e.lineno : '')); });
+    window.addEventListener('unhandledrejection', function (e) { report(String(e.reason && (e.reason.stack || e.reason.message) || e.reason)); });
+    try {
+      var c = document.createElement('canvas');
+      if (!c.getContext('webgl2')) report('This browser has no WebGL 2, which the 3D table needs. Try updating the browser, or use Chrome.');
+    } catch (err) { report('WebGL check failed: ' + err); }
+  })();
+</script>
 
 <div id="top" class="panel">
   <h1>WHITEOUT</h1>
